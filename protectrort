@@ -1,0 +1,160 @@
+from colorama import init, Fore, Back, Style
+import pyttsx3
+engine = pyttsx3.init()
+from PIL import Image
+from PIL.ExifTags import TAGS
+import sys
+import tkinter as tk
+from tkinter import messagebox
+import requests
+from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor
+init()
+
+rate = engine.getProperty('rate')
+engine.setProperty('rate', 230)
+print(Fore.RED + f"{'wellcome to the Protectort platform' : ^30}")
+engine.say("wellcome to the protectort platform")
+engine.runAndWait()
+
+engine.say("enetr the code")
+engine.runAndWait()
+i1 = input("enter the code: ")
+
+
+print (i1)
+engine.say(i1 + "is your username")
+engine.runAndWait()
+
+if i1 == "parsamahmoudi" : 
+    engine.say("wellcome sir, is this your pannel to command, and im your asisstant")
+    engine.runAndWait()
+    print ("wellcome sir")
+    engine.say("what You want to do sir? please choosing in this menu")
+    engine.runAndWait()
+    print (Fore.GREEN + 'What You Want To Do Sir?')
+    print (Fore.YELLOW + "1 _ image metadata")
+    print (Fore.YELLOW + "2 _ xss finder")
+    menu = input("enter : ")
+    if menu == "1" : 
+        engine.say("image metadata is running , stay tune until i send you the result")
+        engine.runAndWait()
+        print (Fore.BLUE + "image metadata is running , stay tune until i send you the result")
+                # path to the image or video
+        imagename = input("please enter the image name with format (alert : image place will be in the source code) : ")
+
+        # read the image data using PIL
+        image = Image.open(imagename)
+
+        # extract other basic metadata
+        info_dict = {
+            "Filename": image.filename,
+            "Image Size": image.size,
+            "Image Height": image.height,
+            "Image Width": image.width,
+            "Image Format": image.format,
+            "Image Mode": image.mode,
+            "Image is Animated": getattr(image, "is_animated", False),
+            "Frames in Image": getattr(image, "n_frames", 1)
+        }
+
+        for label,value in info_dict.items():
+            print(f"{label:25}: {value}")
+            
+        # extract EXIF data
+        exifdata = image.getexif()
+
+        # iterating over all EXIF data fields
+        for tag_id in exifdata:
+            # get the tag name, instead of human unreadable tag id
+            tag = TAGS.get(tag_id, tag_id)
+            data = exifdata.get(tag_id)
+            # decode bytes 
+            if isinstance(data, bytes):
+                data = data.decode()
+            print(f"{tag:25}: {data}")
+            
+    elif menu == "2" : 
+        engine.say("xss finder is running , stay tune until i send you the result")
+        engine.runAndWait()
+        print ("xss finder is running , stay tune until i send you the result")
+    class ScanResultWindow(tk.Toplevel):
+        def __init__(self, vulnerabilities, resistances):
+            super().__init__()
+            self.title("Scan Result")
+
+            result_text = "Vulnerabilities:\n"
+            for url, status in vulnerabilities.items():
+                result_text += f"{url}: {status}\n"
+
+            result_text += "\nResistances:\n"
+            for url, status in resistances.items():
+                result_text += f"{url}: {status}\n"
+
+            label_result = tk.Label(self, text=result_text)
+            label_result.pack(padx=10, pady=10)
+
+
+    def display_result(vulnerabilities, resistances):
+        ScanResultWindow(vulnerabilities, resistances)
+
+
+    def scan_url(session, url, vulnerabilities, resistances):
+        response = session.get(url)
+        if response.ok:
+            payload = '<script>alert("XSS Vulnerability!")</script>'
+            if payload in response.text:
+                vulnerabilities[url] = 'Vulnerable'
+            else:
+                resistances[url] = 'Not vulnerable'
+
+
+    def find_xss():
+        vulnerabilities = {}
+        resistances = {}
+
+        url = entry_url.get()
+        with requests.Session() as session:
+            response = session.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            forms = soup.find_all('form')
+            with ThreadPoolExecutor() as executor:
+                for form in forms:
+                    inputs = form.find_all('input')
+                    for input_field in inputs:
+                        name = input_field.get('name')
+                        if name:
+                            payload = '<script>alert("XSS Vulnerability!")</script>'
+                            modified_url = url.replace(f'&{name}=', f'&{name}={payload}')
+                            executor.submit(scan_url, session, modified_url, vulnerabilities, resistances)
+
+            links = soup.find_all('a')
+            with ThreadPoolExecutor() as executor:
+                for link in links:
+                    href = link.get('href')
+                    if href:
+                        payload = '<script>alert("XSS Vulnerability!")</script>'
+                        modified_url = url.replace(href, f'{href}{payload}')
+                        executor.submit(scan_url, session, modified_url, vulnerabilities, resistances)
+
+        display_result(vulnerabilities, resistances)
+
+
+    # Create the main window
+    window = tk.Tk()
+    window.title("XSS Scanner")
+
+    # Create URL entry label and entry field
+    label_url = tk.Label(window, text="URL:")
+    label_url.pack(pady=10)
+    entry_url = tk.Entry(window, width=50)
+    entry_url.pack()
+
+    # Create scan button
+    button_scan = tk.Button(window, text="Scan", command=find_xss)
+    button_scan.pack(pady=5)
+
+    # Start the main event loop
+    window.mainloop()
+
